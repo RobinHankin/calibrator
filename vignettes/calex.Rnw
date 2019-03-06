@@ -1,0 +1,1295 @@
+% -*- mode: noweb; noweb-default-code-mode: R-mode; -*-
+%\VignetteIndexEntry{Calex: a cookbook for the emulator package}
+%\VignetteDepends{calibrator}
+%\VignetteKeywords{emulator, calibrator, BACCO, R}
+%\VignettePackage{calibrator}
+
+
+\documentclass[nojss]{jss}
+
+\usepackage{amsfonts}
+
+
+%% just as usual
+\author{Robin K. S. Hankin\\Auckland University of Technology}
+\title{Creating a simple \pkg{calibrator} case study from scratch: a cookbook}
+
+%% for pretty printing and a nice hypersummary also set:
+\Plainauthor{Robin K. S. Hankin}
+\Plaintitle{Creating a simple calibrator case study from scratch: a cookbook}
+\Shorttitle{A calibrator cookbook}
+
+%% an abstract and keywords
+\Abstract{
+
+  This document constructs a minimal working example of a simple
+  application of the \pkg{calibrator} package, step by step.  Datasets
+  and functions have a {\tt .vig} suffix, representing ``vignette''.
+}
+
+\Keywords{\pkg{emulator}, \pkg{calibrator}, \pkg{BACCO}, \proglang{R}}
+\Plainkeywords{emulator, calibrator, BACCO, R}
+
+\Address{
+  Robin K. S. Hankin\\
+  Auckland University of Technology\\
+  Wakefield Street, Auckland, NZ\\
+  E-mail: \email{hankin.robin@gmail.com}
+}
+%% It is also possible to add a telephone and fax number
+%% before the e-mail in the following format:
+%% Telephone: +43/1/31336-5053
+%% Fax: +43/1/31336-734
+
+%% for those who use Sweave please include the following line (with % symbols):
+%% need no \usepackage{Sweave.sty}
+
+%% end of declarations %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\SweaveOpts{echo=FALSE}
+\begin{document}
+
+\newsymbol\leqslant 1336
+
+\SweaveOpts{echo=TRUE}
+
+
+
+
+\newcommand{\bt}{\mathbf{t}}
+\newcommand{\bd}{\mathbf{d}}
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\bX}{\mathbf{X}}
+\newcommand{\by}{\mathbf{y}}
+\newcommand{\bz}{\mathbf{z}}
+\newcommand{\bh}{\mathbf{h}}
+\newcommand{\bm}{\mathbf{m}}
+
+\newcommand{\bth}{\mbox{\boldmath $\theta$}}
+\newcommand{\bbeta}{\mbox{\boldmath $\beta$}}
+\newcommand{\bOm}{\mbox{\boldmath $\Omega$}}
+\newcommand{\bV}{\mbox{\boldmath $V$}}
+
+\newcommand{\oa}{\overline{A}}
+\newcommand{\ob}{\overline{B}}
+
+\SweaveOpts{echo=TRUE}
+\section{Introduction}
+Package \pkg{calibrator} of bundle \pkg{BACCO} performs Bayesian
+calibration of computer models.  This document constructs a minimal
+working example of a simple problem, step by step.  Datasets and
+functions have a {\tt .int} suffix, representing ``intermediate''.
+
+This document is not a substitute for~\cite{kennedy2001a}
+or~\cite{kennedy2001b} or~\cite{hankin2005} or the online help files
+in \pkg{calibrator}.  It is not intended to stand alone: for example,
+the notation used here is that of~\cite{kennedy2001a,kennedy2001b},
+and the user should consult the online help in the \pkg{calibrator}
+package when appropriate.  Here, ``online'' means ``The Rd files in an
+R package''.
+
+
+This document is primarily didactic, although it is informal.
+
+Nevertheless, many of the points raised here are duplicated in the
+online helpfiles.
+
+Note that many of the objects created in this document are
+interdependent and changing one sometimes implies changing many
+others.
+
+The author would be delighted to know of any improvements or suggestions.
+Email me at \email{hankin.robin@gmail.com}.
+
+Observations are made over two parameters, x and y, which I style
+``latitude'' and ``longitude''.  I tend to think of the observation as
+temperature.
+
+The model requires two parameters, A and B and, given these, gives
+output as a function of x and y.  The model is thus a function of four
+variables: x, y, A, B.  Write $\theta=(A,B)$ to denote the two
+parameters collectively.  KOH use $\bt$ to denote a specific value of
+parameters, and $\theta$ to denote any old set of parameters one might
+like to consider.
+
+Parameters A and B have true but unknown values and we wish to make
+inferences about these true values.
+
+
+\section{List of objects that the user needs to supply}
+The user needs to supply several objects:
+\begin{itemize}
+\item Design matrices for the code runs and the field observations,
+here \code{D1.int} and \code{D2.int}.
+\item An extractor function to separate out the parameters from the
+independent variables, here \code{extractor.int()}
+\item Various basis functions for the code runs (here \code{h1.int()}
+and \code{H1.int()}) and field observations (here \code{h2.int()} and
+\code{H2.int()})
+\item A function to create a hyperparameter object, here \code{phi.fun.int()}
+\item Two functions to return expectation under different
+distributions, here \code{E.theta.int()} and \code{Edash.theta.int()}
+\item Data, here \code{y.int} for the code observations and \code{z.int}
+for the field observations, and \code{d.int} for both together
+\end{itemize}
+
+
+Objects (data and functions) in the package follow a consistent
+nomenclature: anything that ends in ``\code{.toy}'' is specific to the
+toy datasets, and a replacement needs to be supplied by the user (in
+this vignette, the ending ``\code{.int}'' is used).  Anything that does
+not end with ``\code{.toy}'' is generic, in the sense that it will work
+for any application and does not need be supplied by the user, and
+should not be altered.  For example, \code{hh.fun()} is generic because
+it does not end with \code{.toy}.
+
+\section{Design matrices}
+\label{design.matrices}
+
+There are two design matrices to consider: \code{D1.int}, which is the
+code run set, and \code{D2.int}, the observation points.  Generating
+the data is deferred to section 6 because we need basis functions
+(section 3) and hyperparameters (section 4) before we can specify the
+appropriate distribution from which random can be drawn.
+
+In this section, we will generate design matrices of arbitrary size.
+Data is generated in section~\ref{datasection}.
+
+First, define the number of code observations (\code{n1}) and the
+number of field observations (\code{n2}):
+
+<<LoadLibrary, echo=FALSE,print=FALSE>>=
+<<results=hide>>=
+library("calibrator")
+@ 
+
+<<size_of_datasets>>=
+do_from_scratch = FALSE
+n1 <- 20
+n2 <- 21
+@ 
+
+These can be varied at will.  Now create the D1 matrix, of code
+observation points.  This will consist of\label{D1.int_def}
+<<make_D1>>=
+D1.int <- latin.hypercube(n1,4)
+rownames(D1.int) <- paste("coderun",1:nrow(D1.int),sep=".")
+colnames(D1.int) <- c("x", "y", "A", "B")
+head(D1.int)
+@ 
+
+Notes
+\begin{itemize}
+\item Rownames and column-names are applied.  They are not strictly
+necessary, but are very useful in debugging.
+\item the points are randomly chosen (but fill parameter space
+ reasonably)
+\item We have ten observation points.  More can be added but at the
+cost of slower run times.
+\end{itemize}
+
+
+Now the field observation points.  This is a two-column matrix, with
+an x column and a y column.
+<<make_D2>>=
+D2.int <- latin.hypercube(n2,2)
+rownames(D2.int) <- paste("obs",1:nrow(D2.int),sep=".")
+colnames(D2.int) <- c("x", "y")
+head(D2.int)
+@ 
+
+Notes
+\begin{itemize}
+\item See how the number of observations (n1) is different from the number
+of code runs (n2) as an additional safety check.
+\item Rownames and columnnames are given.
+\end{itemize}
+
+\subsection{Extractor functions}
+
+Now we need a function to extract the variable part and the parameter
+part.  Working by analogy to \code{extractor.toy()}:\label{extractor_make}
+
+<<make_extractor.int>>=
+extractor.int <- function(D1){
+return(list(x.star = D1[, 1:2, drop = FALSE], t.vec = D1[, 3:4, drop = FALSE]))
+}
+@ 
+
+Notes
+\begin{itemize}
+\item The function returns a two-element list, named \code{x.star} and
+\code{t.vec}. 
+\item It just extracts the relevant columns: the first two give the
+lat and long, and columns three and four give A and B
+\item \code{drop=FALSE} is needed to deal with one-row dataframes consistently.
+\end{itemize}
+
+
+\section{Basis functions}
+\label{basis.functions}
+
+We now need basis functions.  The basis function \code{h1.toy()} is
+just a constant term with each component.  We will use a more
+sophisticated version.  
+
+Recall the fundamental equation of KOH: \begin{equation} z(\bx) =
+\rho\eta(\bx,\theta)+\delta(\bx)+\epsilon\end{equation} 
+
+where $z(\bx)$ is field observation, $\eta(\cdot,\cdot)$ a Gaussian
+process with unknown parameters representing a computer model taking
+two arguments: the first argument is the independent variable~$\bx$,
+and the second argument a vector of parameters with~$\theta$ being the
+true but unknown value of the parameters.  The $\delta(\bx)$ part is a
+model inadequacy term, also a Gaussian process with unknown
+parameters.  The last term is an observational iid error
+with~$\epsilon\sim N(0,\lambda^2)$.
+
+We will take reality to be
+\begin{equation}\label{reality}
+x+y^2+y+xy +CE
+\end{equation}
+where CE is correlated error.   Observations are reality plus
+uncorrelated $N(0,\lambda^2)$ error.  The model is
+
+\begin{equation}\label{model}
+Ax+By^2 + CE
+\end{equation}
+
+Here the~$A$ and~$B$ are parameters whose true but unknown values can
+be determined by comparing equation~\ref{reality} with
+equation~\ref{model}.  The values of~A and~B are thus~1 and~1
+respectively; write~$\theta=(A,B)$ to denote the parameters
+collectively.
+
+The model inadequacy term is thus
+\[
+y+xy+CE
+\]
+
+Note that this requires $A=B=1$.
+We will take the model basis functions to be
+\begin{equation}\label{h1.basis}
+h_1(\bx,\theta)=(1,x,A,Ax,By^2)^T
+\end{equation}
+
+Notes
+\begin{itemize}
+\item The model output will be \[h_1(x,\theta)^T\beta_1 +CE\]
+where~$\beta_1=(0,0,0,1,1)^T$ is the true value of the
+coefficients; see section~\ref{datasection} for this in use.
+\item The basis functions could be much more
+complicated than that or, indeed, much simpler.  We could have chosen,
+for example, $h_1(x,\theta)=
+(1,x,y,x^2,y^2,A,B,Ax,Ay,Bx,By,Ax^2,Ay^2,Bx^2,By^2)^T$; or, going the
+other way, $h_1(x,\theta)=1$.
+\end{itemize}
+
+The model inadequacy term then has a mean of~$y+xy$.
+The basis functions for the model inadequacy is then
+\begin{equation}\label{h2.basis}
+h_2(x)=(y,xy)^T\end{equation}
+and the model inadequacy then has a mean of 
+\[
+h_2(x)\beta_2\]
+where~$\beta_2=(1,1)^T$.   Again note the great scope for choosing
+basis functions (although in the case of $h_2()$ there are no
+parameters to consider).
+
+\subsection[Defining regressor functions]{Defining regressor \label{def_reg} functions}
+
+We need an \code{h1.int()}:
+<<make_h1.int>>=
+h1.int <- function(xin){
+out <- c(1,xin[1],xin[3],xin[1]*xin[3], xin[2]^2*xin[4])
+names(out) <- c("const" , "x", "A", "Ax" , "By.sq")
+return(out)
+}
+@
+ 
+Note how the argument \code{xin} is just \code{c(x,theta)}, where \code{  x} is the independent variables and \code{theta} the model
+parameters.  So \code{xin[1]} is~$x$, \code{xin[2]} is $y$, \code{xin[3]}
+is~$A$, and \code{xin[4]} is~$B$.  See how function \code{h1.int()}
+creates the basis functions~$\left(1,x,A,Ax,By^2\right))^T$, as per
+equation~\ref{h1.basis}.
+
+Now we need a vectorized version:
+
+<<make_H1.int>>=
+H1.int <- function(D1){
+
+    if (is.vector(D1)) {
+        D1 <- t(D1)
+    }
+    out <- t(apply(D1, 1, h1.int))
+    colnames(out) <- c("const" , "x", "A", "Ax" , "By.sq")
+    return(out)
+}
+@ 
+
+Notes
+\begin{itemize}
+\item Function \code{H1.int} is the one needed as arguments to
+functions like \code{stage1()}; function \code{h1.int()} is not needed
+except from within \code{H1.int()}.
+\item See how the columnnames are specified.  Again, not strictly
+necessary but strongly recommended
+\item See the special consideration for vector \code{D1}
+\end{itemize}
+
+Similarly for the model inadequacy function:
+<<make_h2.int>>=
+h2.int <- function(x){
+out <- c(x[1],x[1]*x[2])
+names(out) <- c("h2.x" ,"h2.xy")
+return(out)
+}
+
+H2.int <- 
+function (D2) 
+{
+    if (is.vector(D2)) {
+        D2 <- t(D2)
+    }
+    out <- t(apply(D2, 1, h2.int))
+    colnames(out) <- names(h2.int(D2[1, , drop = TRUE]))
+    return(out)
+}
+@ 
+
+\section{Hyperparameter object}
+
+We now need a function \code{phi.fun.int()} to create an appropriate
+hyperparameter object.  Note that function \code{phi.change()} is
+generic (so we don't need to write one).  The best way to write %'
+\code{phi.fun.int()} is to proceed by analogy and modify function
+\code{phi.fun.toy()}, line by line.  Most of the function is
+straightforward to create.
+Note that the only parts that need changing in this case are the
+internal functions \code{pdm.maker.psi1()} and
+\code{pdm.maker.psi1()}; I use ``pdm" to denote
+``positive definite matrix".  These two functions create
+positive-definite matrices $\bOm_x$ and $\bOm_t$ that are used to
+determine $c_1\left((x,t),(x',t')\right)$.  These are defined by:
+
+<<make_pdm.maker.psi1>>=
+    pdm.maker.psi1 <- function(psi1) {
+        jj.omega_x <- diag(psi1[1:2])
+        rownames(jj.omega_x) <- names(psi1[1:2])
+        colnames(jj.omega_x) <- names(psi1[1:2])
+        jj.omega_t <- diag(psi1[3:4],ncol=2)
+        rownames(jj.omega_t) <- names(psi1[3:4])
+        colnames(jj.omega_t) <- names(psi1[3:4])
+        sigma1squared <- psi1[5]
+        return(list(omega_x = jj.omega_x, omega_t = jj.omega_t, 
+            sigma1squared = sigma1squared))
+    }
+    pdm.maker.psi2 <- function(psi2) {
+        jj.omegastar_x <- diag(psi2[1:2],ncol=2)
+        sigma2squared <- psi2[3]
+        return(list(omegastar_x = jj.omegastar_x, sigma2squared = sigma2squared))
+    }
+@ 
+Notes
+\begin{itemize}
+\item In function \code{phi.fun.toy()} there are two functions with
+    the same name.  They extract from vectors \code{psi1} and
+    \code{psi2} a positive definite matrix used in $c_1(\cdot,\cdot)$
+    and $c_2((\cdot,\cdot),(\cdot,\cdot))$.
+\item The purpose of all this is to implement the fact that $\bOm_x$
+    and $\bOm_t$ are {\em arbitrary} functions of \code{psi1}.  Here,
+    it's dead easy because the matrices are diagonal and the values
+    just correspond to consecutive elements of  \code{psi1} but in
+    general there may be nonzero off-diagonal  elements of $\bOm_x$
+    which may be a complicated function of \code{psi1}.
+\end{itemize}
+
+<<phi.fun.int, echo=FALSE>>=
+ phi.fun.int <- 
+function (rho, lambda, psi1, psi1.apriori, psi2, psi2.apriori, 
+    theta.apriori) 
+{
+    # CHANGES START
+    pdm.maker.psi1 <- function(psi1) {
+        jj.omega_x <- diag(psi1[1:2])
+        rownames(jj.omega_x) <- names(psi1[1:2])
+        colnames(jj.omega_x) <- names(psi1[1:2])
+        jj.omega_t <- diag(psi1[3:4],ncol=2)
+        rownames(jj.omega_t) <- names(psi1[3:4])
+        colnames(jj.omega_t) <- names(psi1[3:4])
+        sigma1squared <- psi1[5]
+        return(list(omega_x = jj.omega_x, omega_t = jj.omega_t, 
+            sigma1squared = sigma1squared))
+    }
+    pdm.maker.psi2 <- function(psi2) {
+        jj.omegastar_x <- diag(psi2[1:2],ncol=2)
+        sigma2squared <- psi2[3]
+        return(list(omegastar_x = jj.omegastar_x, sigma2squared = sigma2squared))
+    }
+    # CHANGES END: remainder of function unaltered
+    jj.mean <- theta.apriori$mean
+    jj.V_theta <- theta.apriori$sigma
+    jj.discard.psi1 <- pdm.maker.psi1(psi1)
+    jj.omega_t <- jj.discard.psi1$omega_t
+    jj.omega_x <- jj.discard.psi1$omega_x
+    jj.sigma1squared <- jj.discard.psi1$sigma1squared
+    jj.discard.psi2 <- pdm.maker.psi2(psi2)
+    jj.omegastar_x <- jj.discard.psi2$omegastar_x
+    jj.sigma2squared <- jj.discard.psi2$sigma2squared
+    jj.omega_t.upper <- chol(jj.omega_t)
+    jj.omega_t.lower <- t(jj.omega_t.upper)
+    jj.omega_x.upper <- chol(jj.omega_x)
+    jj.omega_x.lower <- t(jj.omega_x.upper)
+    jj.a <- solve(solve(jj.V_theta) + 2 * jj.omega_t, solve(jj.V_theta, 
+        jj.mean))
+    jj.b <- t(2 * solve(solve(jj.V_theta) + 2 * jj.omega_t) %*% 
+        jj.omega_t)
+    jj.c <- jj.sigma1squared/sqrt(det(diag(nrow = nrow(jj.V_theta)) + 
+        2 * jj.V_theta %*% jj.omega_t))
+    names(jj.c) <- "ht.fun.precalc"
+    jj.A <- solve(jj.V_theta + solve(jj.omega_t)/4)
+    jj.A.upper <- chol(jj.A)
+    jj.A.lower <- t(jj.A.upper)
+    list(rho = rho, lambda = lambda, psi1 = psi1, psi1.apriori = psi1.apriori, 
+        psi2 = psi2, psi2.apriori = psi2.apriori, theta.apriori = theta.apriori, 
+        omega_x = jj.omega_x, omega_t = jj.omega_t, 
+        omegastar_x = jj.omegastar_x, sigma1squared = jj.sigma1squared, 
+        sigma2squared = jj.sigma2squared, omega_x.upper = jj.omega_x.upper, 
+        omega_x.lower = jj.omega_x.lower, omega_t.upper = jj.omega_t.upper, 
+        omega_t.lower = jj.omega_t.lower, a = jj.a, b = jj.b, 
+        c = jj.c, A = jj.A, A.upper = jj.A.upper, A.lower = jj.A.lower)
+}
+@ 
+
+Given this, we can now change \code{phi.int}, using function
+\code{phi.change()}.  Note that this function is generic, so we do not
+need to write another version.  The best way to call
+\code{phi.change()} is to define intermediate variables that begin
+with \code{jj}:
+
+<<make_jj.psi1>>=
+jj.psi1 <- 1:5
+names(jj.psi1) <- c("x", "y", "A","B", "s1sq")
+
+jj.psi2 <- 1:3
+names(jj.psi2) <- c("x", "y",          "s1sq")
+
+jj.mean1 <- rep(1,5)
+names(jj.mean1) <- names(jj.psi1)
+
+jj.sigma1 <- diag(c(1.1, 1.1, 1.2, 1.3, 1.1))
+rownames(jj.sigma1) <- names(jj.psi1)
+colnames(jj.sigma1) <- names(jj.psi1)
+
+jj.mean2 <- c(1,0.1,rep(1.1,3))
+names(jj.mean2) <- c("rho","lambda",names(jj.psi2))
+jj.sigma2 <- diag(c(1,0.2,1.1, 1.1, 1.2))/10
+rownames(jj.sigma2) <- names(jj.mean2)
+colnames(jj.sigma2) <- names(jj.mean2)
+
+jj.mean.th <- 1:2
+names(jj.mean.th) <- c("A","B")
+jj.sigma.th <- diag(c(1.5,1.7))
+rownames(jj.sigma.th) <- names(jj.mean.th)
+colnames(jj.sigma.th) <- names(jj.mean.th)
+@ 
+
+These variables may be passed directly to \code{phi.fun.int()}:
+<<make_phi.int>>=
+phi.int <-
+     phi.fun.int(rho=1,
+     lambda=1,
+     psi1          = jj.psi1,
+     psi2          = jj.psi2,
+     psi1.apriori  = list(mean=jj.mean1,sigma=jj.sigma1),
+     psi2.apriori  = list(mean=jj.mean2,sigma=jj.sigma2),
+     theta.apriori = list(mean=jj.mean.th,sigma=jj.sigma.th)
+                 )
+
+@ 
+
+Notes:
+\begin{itemize}
+\item The purpose of the call to \code{phi.fun.int()} was to create a
+hyperparameter object, here \code{phi.int}. 
+\item you only have to call this function, with all its complicated
+arguments, once.  Save the result in, say, \code{jj} and then use
+function \code{phi.change()}, which is generic, and much simpler to use.
+\item The value for rho and lambda are just scalars 
+\item \code{psi1} and \code{psi2} are structures, or named vectors
+(it's always good practice to include names).  Vector psi1 has 5
+elements: two for x and y, two for the parameters A and B, and one for
+sigma1squared.  Vector psi2 has three: two for x and y, and one for
+\code{sigma2squared}.
+
+\item the priors are as expected.  Remember that the apriori  
+distributions are over psi1 or psi2, not just the roughness lengths. 
+\end{itemize}
+
+So now we have a working hyperparameter object \code{phi.int}, we can
+modify it with generic function \code{phi.change()}:
+
+<<call_phi.change>>=
+phi.int2 <- phi.change(old.phi=phi.int, phi.fun=phi.fun.int, rho=3)
+print(phi.int2$rho)
+@ 
+
+Note that function \code{phi.change()} takes an \code{old.phi}
+argument, which is a working hyperparameter object to be modified.  It
+also takes a \code{phi.fun} argument, which is the name of a
+hyperparameter creation function, in this case \code{phi.fun.int}.
+
+\section{Functions E.theta.int() and Edash.theta.int()}
+
+The online help page for \code{E.theta.toy()} discusses how to create
+a new function for use in a particular example.
+
+We need to define functions \code{E.theta.int()} and
+\code{Edash.theta.int()}.  These functions change when the basis
+functions \code{h1.int()} and \code{h2.int()} change, because of
+possible nonlinearity.
+
+The function \code{E.theta.toy()} is relatively simple because there
+the basis functions were linear in $\theta$, so {\em in this case}
+expectation commutes past taking the basis functions\footnote{This is
+not true in general.  Consider a nonlinear case, for example
+$h_1(x,\theta)=(1,A^2x)^T$.
+Now~$E_\theta\left(h_1(x,\theta)\right)^T$---that is, the expectation
+of $(1,A^2x)^T$ under the prior distribution for $\theta$---will be
+$\left(1,(\overline{A}^2+\sigma_A^2)x\right)^T$.  }
+
+The first step is to examine function \code{E.theta.toy()}:
+
+<<examine_E.theta.toy>>=
+E.theta.toy
+@ 
+
+The function is in two bits: one if \code{give.mean} is \code{TRUE}, and
+one for it being \code{FALSE}.  If \code{TRUE}, it returns \code{H1()}
+using the input value of \code{D2} and $\overline{\theta}$ (as
+determined from the {\em a priori} distribution).  If \code{FALSE}, it
+needs to return the matrix described in the help file\footnote{
+  $E_\theta(h\cdot h^T)-E_\theta(h)\cdot E_\theta(h)^T$.  An example
+  is given in the next footnote.}  which in this case is independent
+of \code{x1} and \code{x2}.  This matrix is 6-by-6 because it is the
+same size as the variance matrix, and that is 6-by-6 because
+$h(x)=\mbox{\code{c(1,x)}}$ [recall that here \code{x} is a single row of
+  a dataframe like \code{D1.toy}---actually, it uses the output of \code{    D1.fun()}---and this has five columns].
+
+That was straightforward because the toy case included only linear
+basis functions.  In the intermediate case presented here, the basis
+functions are nonlinear so expectation will not commute past
+\code{h1.int()}.  Recall that function \code{h1.int()} includes
+a product:
+
+<<examine_h1.int>>=
+h1.int
+@ 
+
+(thus~$\bh_1\left(\bx,\bth\right)=\left(1,x,A,Ax,By^2\right)^T$, as
+per section~\ref{def_reg}, page~\pageref{def_reg}).
+
+Observe that the
+fourth element of the output, viz \code{xin[1]*xin[3]}, is nonlinear.
+
+The fact that~$E(X^2)\neq\left(E(X)\right)^2$ complicates the matrix
+returned by function \code{E.theta.int()} (see \code{?E.theta.int} for
+details of this matrix).  But we may copy from function \code{E.theta.toy()} and modify as necesary:
+
+<<make_E.theta.int>>=
+E.theta.int <- function(D2 = NULL, H1 = NULL, x1 = NULL, x2 = NULL, phi, give.mean = TRUE)
+{
+    if (give.mean) {
+        m_theta <- phi$theta.apriori$mean
+        return(H1(D1.fun(D2, t.vec = m_theta)))
+    }
+    else {
+        out <- matrix(0, 5, 5)
+        out[3,3] <- phi$theta.apriori$sigma[1,1]
+        out[3,4] <- phi$theta.apriori$sigma[1,1]*x1[1]
+        out[4,3] <- phi$theta.apriori$sigma[1,1]*x2[1]
+        out[4,4] <- phi$theta.apriori$sigma[1,1]*x1[1]*x2[1]
+        out[5,5] <- phi$theta.apriori$sigma[2,2]*x1[2]*x2[2]
+        return(out)
+    }
+}
+@ 
+
+Notes
+\begin{itemize}
+\item The object returned when \code{give.mean} is \code{TRUE} does
+not need changing, because \code{h1.int()} is linear in \code{A} and
+\code{B}.  If there were nonlinear terms there (such as $A^2$) we
+would need to add a variance.
+\item The online help for \code{E.theta.toy()} discusses the
+\code{give.mean} being \code{FALSE} part.  Here, we use the fact that
+the prior distribution has zero correlation between A and B.  The
+thing at the top of page 5 of the supplement should be
+\begin{equation}\label{top.of.p5}
+E_\theta\left(\bh_1\left(\bx_j,\bth\right)\cdot\bh_1\left(\bx_j,\bth\right)^T\right)
+=
+E_\theta\left(
+\begin{array}{ccccc}
+1 & x & A & Ax & By^2\\
+x & x^2 & Ax & Ax^2 & Bxy^2\\
+A & Ax & A^2 & A^2x & ABy^2\\
+Ax & Ax^2 & A^2x & A^2x^2 & ABxy^2\\
+By^2 & Bxy^2 & ABy^2&ABxy^2&B^2y^4
+\end{array}\right)
+\end{equation}which has value
+\[
+\left(
+\begin{array}{ccccc}
+1&x&\oa & \oa x & \ob y^2\\
+x & x^2 & \oa x & \oa x^2 & \ob xy^2\\
+\oa & \oa x & \oa^2+\sigma^2_A&
+\left(\oa^2+\sigma^2_A\right)x&
+\left(\oa\,\ob+\COV(A,B)\right)y^2\\
+\oa x & \oa x^2 & \left(\oa^2+\sigma^2_A\right)x&
+\left(\oa^2+\sigma^2_A\right)x^2&
+\left(\oa\,\ob+\COV(A,B)\right)xy\\
+\ob y^2&\ob xy^2&\left(\oa\,\ob+\COV(A,B)\right)y^2&
+\left(\oa\,\ob+\COV(A,B)\right)xy^2&
+\left(\ob^2+\sigma_B^2\right)y^4
+\end{array}
+\right)
+\]
+
+where an overline denotes expectation with respect to $\theta$, and
+$\sigma^2_A$ denotes variance (with respect to $\theta$) of~$A$.
+So the object to return (when \code{give.mean} is \code{FALSE}) is
+this, minus
+$E_\theta\left(h_1(x,\theta)\right)E_\theta\left(h_1(x,\theta)\right)^T$
+as documented\footnote{Just for the record,
+\[
+E_\theta\left(h_1(x,\theta)\right)E_\theta\left(h_1(x,\theta)\right)^T=
+\left(
+\begin{array}{ccccc}
+1      &x        &\oa             &\oa x            &\ob y^2\\
+x      &x^2      &\oa x           &\oa x^2          &\ob xy^2\\
+\oa    &\oa x    &\oa^2           &\oa^2x           &\oa\cdot\ob y^2\\
+\oa x  &\oa x^2  &\oa^2x          &\oa^2x^2         &\oa\cdot\ob xy^2\\
+\ob y^2& \ob xy^2&\oa\cdot\ob y^2 &\oa\cdot\ob xy^2 & \ob^2 y^4
+\end{array}\right).\]
+}.  This would be
+
+\[
+\left(
+\begin{array}{ccccc}
+0&0&0            &0             &0\\
+0&0&0            &0             &0\\
+0&0&\sigma_A^2   &\sigma_A^2x    &\COV(A,B)y^2\\
+0&0&\sigma_A^2x  &\sigma_A^2x^2  &\COV(A,B)xy\\
+0&0&\COV(A,B)y^2 &\COV(A,B)xy   &\sigma_B^2y^4
+\end{array}\right)
+\]
+
+We can now use the fact that $E(XY)=E(X)\cdot E(Y)$ if~$X$ and~$Y$ are
+independent random variables.  In this case, because the prior
+variance matrix (viz, \code{jj.psi1.apriori}) is diagonal, the
+different terms are indeed independent.  So the covariance is
+zero and the matrix reduces to
+\[
+\left(
+\begin{array}{ccccc}
+0&0&0&0&0\\
+0&0&0&0&0\\
+0&0&\sigma_A^2&\sigma_A^2x&0\\
+0&0&\sigma_A^2x&\sigma_A^2x^2&0\\
+0&0&0&0&\sigma_B^2y^4
+\end{array}\right)
+\]
+which is implemented in function \code{E.theta.int()} given
+above\footnote{Returning to the nonlinear example given in the
+previous footnote, viz $h=h_1(x,\theta)=(1,A^2x)^T$.  This would
+have $E_\theta(h)=\left(1,x(\overline{A}^2+\sigma_A^2)\right)^T$
+and $E_\theta(h)\cdot E_\theta(h)^T=
+\left(\begin{array}{cc}
+1&x\left(\overline{A}^2+\sigma_A^2\right)\\
+x\left(\overline{A}^2+\sigma_A^2\right)&x^2\left(\overline{A}^2+\sigma_A^2\right)^2
+\end{array}\right)$.
+
+But what is needed by KOH is
+\[
+E_\theta\left(h\cdot h^T\right)=
+E_\theta\left(
+\begin{array}{cc}1&A^2x\\A^2x & A^4x^2\end{array}\right)
+=
+\left(\begin{array}{cc}
+1&x\left(\overline{A}^2+\sigma_A^2\right)\\
+x\left(\overline{A}^2+\sigma_A^2\right)&
+x^2\left(\overline{A}^4+6\overline{A}^2\sigma_A^2+3(\sigma_A^2)^2
+\right) \end{array}\right).\]
+
+The manpage for function \code{E.theta.toy()} says how, if argument
+\code{give.mean} is \code{FALSE}, the value returned should be the
+thing that has to be added to~$E_\theta(h)\cdot E_\theta(h)^T$ to
+give~$E_\theta\left(h\cdot h^T\right)$.  The motivation for
+considering it this way is that \code{E.theta.toy(...,give=FALSE)}
+will return a zero matrix for basis functions linear in~$\theta$.
+               
+So, for this $h(\cdot,\cdot)$, function \code{E.theta.int()} would
+have to return the difference between $E_\theta\left(h\cdot
+h^T\right)$ and $E_\theta(h)\cdot E_\theta(h)^T$, which would
+be~$\left(\begin{array}{cc} 0&0\\
+0&x^2\left(4\overline{A}^2\sigma_A^2+2(\sigma_A^2)^2 \right)
+\end{array}\right)$.
+}
+\item There is probably a better way to return this matrix.
+\end{itemize}
+
+
+\subsection{Function Edash.theta.int()}
+
+Function \code{Edash.theta.int()} returns expectation of
+$h_1(x,\theta)$ with respect to the normal distribution
+\begin{equation}\label{edash}
+\mathcal{N}
+\left(
+(\bV_\theta^{-1}+2\bOm_t)^{-1}(\bV_\theta^{-1}\bOm_\theta+2\bOm_t\bt_k),
+(\bV_\theta^{-1}+2\bOm_t)^{-1}
+\right)
+\end{equation}
+
+Fortunately, ${E'}_\theta(h\cdot h^T)$ is not required.
+
+As the basis functions used are linear in theta\footnote{Returning to
+our nonlinear example, footnotes passim, viz
+$h_1(x,\theta)=(1,xA^2)^T$, we can see from equation~\ref{edash} that
+${E'}_{\theta}=\left(1,x\left({\mu'}_A^2+{\sigma'}_A^2\right)\right)^T$
+where~$\mu'_A$ is the mean of the distribution in
+equation~\ref{edash}, that is, the first element of the
+vector~$(\bV_\theta^{-1}+2\bOm_t)^{-1}(\bV_\theta^{-1}\bOm_\theta+2\bOm_t\bt_k)$,
+and~${\sigma'}_A^2$ is the variance---that is the top left element
+of~$(\bV_\theta^{-1}+2\bOm_t^{-1})$ (NB: this argument is true whether
+or not the variance matrix~$\bV_\theta$ and the positive definite
+scales matrix~$\bOm_t$ are diagonal)}, expectation WRT the dashed
+distribution commutes past the regressor function~$h_1(\cdot,\cdot)$.
+So we can just use the toy function:
+
+<<make_Edash.theta.toy>>=
+Edash.theta.int <- Edash.theta.toy
+@ 
+
+
+
+\section{Data}
+\label{datasection}
+We now generate some data: code runs, and observations.  
+
+This is done in order to test the routines: by generating data with
+known parameters and hyperparameters we can verify that the package
+can reproduce at least approximately correct values.
+
+Consider the following equation, taken from KOH:
+
+\begin{equation}\label{koh}
+z_i=\zeta(x_i)+e_i=\rho\eta\left(x_i,\theta\right)+\delta(x_i)+e_i
+\end{equation} where $z_i$ is the $i$-th observation, $\zeta(x_i)$ is
+the true value at point $x_i$, $\rho$ a calibration factor (of
+notional value 1), $\eta(\cdot,\cdot)$ the code viewed as a function
+of observation point and parameter value, $\theta$ the true but
+unknown set of parameters, and $\delta(\cdot)$ the model inadequacy
+term, and $e_i\sim\mathcal{N}(0,\lambda^2)$ is an observational error
+term.
+
+So, do the model first.  Recall that the model is a Gaussian process
+and we have discussed the mean in section~\ref{basis.functions}.  The
+variance matrix is given by function \code{corr.matrix()} of package
+\code{emulator}.  We know, {\em ex cathedra,} that $A=B=1$:
+
+<<make_theta.TRUE>>=
+theta.TRUE <- c(1,1)
+@ 
+
+and we can specify beta1 and psi1:
+
+<<make_beta1.TRUE>>=
+beta1.TRUE <- c(0,0,0,1,1)
+psi1.TRUE <- c(4,4,4,4,0.5)
+@ 
+
+Now we need to create a design matrix:
+
+<<make_two.designs>>=
+two.designs <- rbind(D1.int,D1.fun(x.star=D2.int,t.vec=theta.TRUE))
+@ 
+
+Here, \code{two.designs} is a design matrix of \code{n1+n2} rows; the first
+\code{n1} rows of which are the code observation points, and the last
+\code{n2} rows are the field observation points but with the true
+parameter value added.
+
+Just have a look at the first three and last three lines:
+<<examine_two.designs>>=
+two.designs[c(1:3,(n1+n2):(n1+n2-2)),]
+@ 
+
+See how the block of \code{1.0}s in the lower right corner corresponds
+to appending the true value of~$\theta$ to the design matrix.
+
+The next step is to sample from the appropriate multivariate Gaussian distribution:
+<<make_y.int>>=
+jj.mean <- H1.int(two.designs)  %*%  beta1.TRUE
+jj.sigma <- psi1.TRUE[5]*corr.matrix(two.designs, scales = psi1.TRUE[1:4])
+code.and.obs <- as.vector(rmvnorm(n=1,mean=jj.mean,sigma=jj.sigma))
+y.int <- code.and.obs[1:n1]
+z.int <- code.and.obs[(n1+1):(n1+n2)]
+names(y.int) <- rownames(D1.int)
+head(y.int)
+@ 
+
+Notes
+\begin{itemize}
+\item The mean, \code{jj.mean}, is given by the linear combination of the regressor
+basis as discussed in section~\ref{basis.functions}
+\item The model $\eta$ is a Gaussian process.  The mean is specified,
+the variance matrix given by the correlation function
+\code{corr.matrix()} of package \code{emulator}.  The value
+for $\sigma_1^2$ is one (ie the fifth element of \code{psi1.TRUE}).
+\item Function \code{rmvnorm()} returns a matrix, which has to be
+converted to a vector.
+\item The names of \code{y.int} have to be specified explicitly.
+\item Observe how \code{n=1} in the call to \code{rmvnorm()}.  We are
+making a {\em single} observation of a multivariate Gaussian distribution.
+\end{itemize}
+
+
+\subsection{Observations and model inadequacy}
+
+To create reality, we have to generate model observations
+using the true but unknown parameter values.  
+
+We now have to  add the model inadequacy term to \code{z.int}.
+First, specify the parameters and hyperparameters of the model inadequacy:
+
+<<make_beta2.TRIE>>=
+beta2.TRUE <- c(1,1)
+psi2.TRUE <- c(3,3,0.6)
+@ 
+
+Which give the true values.  Now create model inadequacy:
+<<make_model.inadequacy>>=
+jj.mean <-  drop(H2.int(D2.int) %*% beta2.TRUE)
+jj.sigma <- corr.matrix(D2.int, scales=psi2.TRUE[1:2])*psi2.TRUE[3]
+model.inadequacy <- rmvnorm(n=1, mean=jj.mean,sigma=jj.sigma)
+z.int <- as.vector(z.int +  model.inadequacy) 
+names(z.int) <- rownames(D2.int)
+@ 
+
+Notes
+\begin{itemize}
+\item The overall purpose of the above code fragment is to create
+observations drawn from the appropriate multivariate Gaussian distribution.
+The key is the fourth line, in which the model observations
+\code{cond.gp} have model inadequacy added.
+\item Model inadequacy has two components: the mean (\code{jj.mean}),
+generated using the true coefficients and the basis functions; 
+and the correlated residual.
+\item The correlated error is added using \code{rmvnorm()} with a
+variance matrix generated by \code{corr.matrix()}.
+\item The correlated error is independent of the model runs, and in
+particular is not a function of~$\theta$.
+\end{itemize}
+
+Now add observational error:
+<<add_error>>=
+lambda.TRUE <- 0.00
+jj.obs.error <-  rnorm(n2)*lambda.TRUE
+z.int <- z.int + jj.obs.error
+head(z.int)
+@ 
+
+Notes
+\begin{itemize}
+\item The observation errors are uncorrelated Gaussian with a mean of
+0 and a variance of 0.1.
+\item Thus $\lambda$ is 0.1
+\end{itemize}
+
+And finally we need to create a full data vector \code{d.int}
+
+<<make_d.int>>=
+d.int <- c(y.int , z.int)
+@ 
+
+\section{Intermediate  results}
+
+We now use some functions that are part of the \code{BACCO} bundle.
+
+Note that the numbers given above will vary from instantiation to
+instantiation.    
+
+OK, so let's change the hyperparameter object to contain the true values:%'
+<<make_psi1>>=
+phi.true <- phi.change(phi.fun=phi.fun.int, old.phi=phi.int,
+psi1=psi1.TRUE, psi2=psi2.TRUE,lambda=0.1,rho=1)
+@ 
+
+and then use these hyperparameters to estimate the coefficients:
+
+<<call_betahat.fun.koh>>=
+betahat.fun.koh(theta=theta.TRUE, d=d.int, D1=D1.int, D2=D2.int, H1=H1.int, H2=H2.int, phi=phi.true)
+@ 
+(note the last argument to \code{betahat.fun.koh()}).
+
+We know the correct answer should be
+\code{c(beta1.TRUE,beta2.TRUE)=c(0,0,0,1,1,1,1)}, so there is
+evidently a lot of scatter.  Try redefining \code{psi1.TRUE} and
+\code{psi2.TRUE} so that the variance (ie the last element of each
+vector) is smaller.  Or for that matter, using a larger value of
+\code{n1} in section~\ref{design.matrices}.
+
+Just as a point of interest, we will estimate the betas but using the
+wrong parameters (recall that in practice, the
+parameters' true value is not known). 
+
+%'
+
+<<call_betahat.fun.koh_otherparams>>=
+betahat.fun.koh(theta=c(-5,5), d=d.int, D1=D1.int, D2=D2.int, H1=H1.int, H2=H2.int, phi=phi.true)
+@ 
+
+This is far from the true values because we have used a very
+inaccurate value for theta.
+
+
+\subsection{Calibration}
+
+As a bit of fun, we can use equation~8 of the supplement, implemented
+in BACCO by \code{p.eqn8.supp()}.  This equation gives the probability
+of theta, given d and psi.  Note that this formula is conditional on
+the correct hyperparameters psi, so we will use \code{phi.true}.
+
+
+
+<<call_p.eqn8.supp>>=                  
+p.eqn8.supp(theta=c(1,1), D1=D1.int, D2=D2.int, H1=H1.int, H2=H2.int, d=d.int, phi=phi.true)
+@ 
+(Recall that this function gives a number {\em proportional} to the
+true probability).  Now try a different value for theta:
+
+<<call_p.eqn8.supp_difftheta>>=                  
+p.eqn8.supp(theta=c(5,-6), D1=D1.int, D2=D2.int, H1=H1.int, H2=H2.int, d=d.int, phi=phi.true)
+@ 
+
+See how this is lower, because the value of theta is unlikely to be
+the true one.  So we could use a maximum likelihood estimator (which
+would have to use numerical optimization techniques) to estimate
+theta, if we knew the correct values to use for the hyperparameters.  
+
+In practice, the hyperparameters are not known in advance.  Estimating
+them is the subject of the next section.
+
+\section{Estimating the hyperparameters}
+
+
+The \code{BACCO} bundle includes two functions to automate the
+determination of the hyperparameters: \code{stage1()} and
+\code{stage2()}.  The bundle also includes a \code{stage3()} function
+which gives a MLE for theta (but no such stage3 appears in KOH).
+
+The function calls in this section are very computationally intensive
+and the calls include a number of timesaving features (such as very
+short optimization) that degrade the quality of the predictions.
+
+These features are discussed where appropriate but the user is advised
+to fiddle with them to get better results.  YMMV.
+
+
+
+
+\subsection{Stage 1}
+
+KOH proposed estimating the hyperparameters in two stages.  Stage 1
+used just the code output data \code{y} to estimate \code{psi1}.  In
+the \code{
+calibrator} bundle, this is accomplished by \code{stage1()}:
+
+<<call_phi.stage1>>=
+phi.stage1 <- stage1(D1=D1.int, y=y.int, H1=H1.int, maxit=10,
+ method="SANN", trace=0, do.print=FALSE, phi.fun=phi.fun.int,
+ phi=phi.int)
+@ 
+
+Notes
+\begin{itemize}
+\item Function \code{stage1()}  returns a hyperparameter object, which
+contains optimized value for \code{psi1}.
+\item The method used is simulated annealing, because with
+\code{maxit=1} it finishes very quickly.
+\item The function takes a hyperparameter object, in this case \code{phi.int}.
+\item By default, function \code{stage1()} maximizes the posterior
+probability, so the prior (which is part of the hyperparameter object)
+makes a difference.
+\end{itemize}
+
+We can examine the output of \code{stage1()} directly:
+
+<<examine_stage1>>=
+phi.stage1$psi1
+@ 
+
+Recall that \code{phi.stage1\$psi1} is a vector of free parameters that
+are used to calculate~$c_1(\bx,\bx')$.%' 
+
+Further recall
+that~$c_1\left((\bx,\bt),(\bx',\bt')\right)=\sigma_1^2\exp\left\{-(\bx-\bx')^T
+\bOm_x(\bx-\bx')
+- (\bt-\bt')^T\bOm_t(\bt-\bt')\right\}$ where~$\sigma_1^2$,
+and~$\bOm_x$ and $\bOm_t$ are positive definite matrices that are
+functions of \code{psi1}.
+
+In this case we have
+
+<<examine_stage1_cont>>=
+phi.stage1$sigma1squared
+phi.stage1$omega_x
+phi.stage1$omega_t
+@ 
+
+
+\subsection{Stage 2}
+
+Stage 2 is the estimation of $\rho$, $\lambda$, and \code{psi2}.  This
+is accomplished by function \code{stage()}.  
+
+{\large\em\bf NB: stage 2 is very computationally intensive!}
+
+
+OK, use \code{stage2()}:
+
+<<call_stage2,cache=TRUE>>=
+  use1 <- 1:10
+  use2 <- 1:11
+  phi.stage2 <- stage2(D1=D1.int[use1,], D2=D2.int[use2,], H1=H1.int, H2=H2.int,
+      y=y.int[use1], z=z.int[use2], extractor=extractor.int,
+     phi.fun=phi.fun.int, E.theta=E.theta.int, Edash.theta=Edash.theta.int,
+     maxit=1, method="SANN", phi=phi.stage1)
+@ 
+
+Notes
+\begin{itemize}
+\item This function takes a long long long time to run, and is very
+computationally slow.
+\item The function uses only the first 10 code runs and the first 11
+field observations.  You can change this by modifying \code{use1} and
+\code{use2} in the above chunk.
+\item The above function call is an absolute minimum working model.
+It uses SANN with only {\em one} function evaluation.
+\item The start point is the output from \code{stage1()}, viz \code{phi.stage1}.
+\item The purpose of  function \code{stage2()} is to optimize the
+posterior probability of the hyperparameters rho, lambda,
+sigma2squared, and the lengthscales for $c_2(\cdot,\cdot)$.
+\end{itemize}
+
+The modified hyperparameters are
+
+<<examine_stage2>>=
+phi.stage2$rho
+phi.stage2$lambda
+phi.stage2$sigma2squared
+phi.stage2$psi2
+@ 
+
+(although, given the extremely short optimization run above, these
+ parameters may well not be different from the original).
+
+
+\section{Calibrated prediction}
+
+Function \code{EK.eqn10.supp()} carries out calibrated prediction as
+per section 4.2 of KOH2.  It should come as no surprise that
+\begin{itemize}
+\item The R code is complicated and impenetrable 
+\item The function arguments are tedious, error-prone, and complicated
+\item The mathematics are complicated and impenetrable
+\item The numerics take an interminably long time to complete
+\item Even with the simplest case possible, accurate results require
+more computing power than is available in the entire universe.
+\end{itemize}
+
+\ldots but, it {\em is} implemented.
+
+The integration is carried out by function \code{adaptIntegrate()} of
+the \code{cubature} package.
+
+The first step is to read \code{help(EK.eqn10.supp)}, which gives a
+working example.  
+
+There are two arguments that are not covered above.  The first is
+\code{X.dist} and the second is \code{hbar}.  These are discussed in
+the online help pages.
+
+For \code{X.dist}, we need to define an uncertainty distribution on
+the independent variables.  Working from \code{X.dist.toy}, we may
+copy it directly:
+
+<<make_Xdist>>=
+jj.xdist.mean <- rep(0.5,2)
+names(jj.xdist.mean) <- c("x","y")
+jj.xdist.var <- 0.05+diag(c(0.1,0.1))
+rownames(jj.xdist.var) <- c("x","y")
+colnames(jj.xdist.var) <- c("x","y")
+
+X.dist.int <- list(mean=jj.xdist.mean,var=jj.xdist.var)
+@ 
+
+thus defining a Gaussian uncertainty distribution for \code{X}.  We
+now need a function \code{hbar}.  The manpage discusses this and gives
+an example.  Note that the example is excruciatingly simple because
+there the basis functions are linear in \code{x}.  And in the
+intermediate case they are not.
+
+To write a suitable function, we need to remind ourselves what the
+basis functions \code{h1.int()} and \code{h2.int()} are.  Look back at
+equations~\ref{h1.basis} and~\ref{h2.basis}.
+
+Take the top bit first.  This is~$\rho
+E_X\left\{h_1(\bx,\bth)\right\}$, that is, expectation with respect to
+\code{X.dist}.  Recall that~$h_1(\bx,\bth)=(1,x,A,Ax,By^2)^T$, so the
+top bit is
+\begin{equation}\label{hbar.first}
+\rho E_X\left(1,x,A,Ax,By^2\right)^T=
+\rho\left(1,\overline{x},A,A\overline{x},B\left(\overline{y}^2+\sigma^2_y\right)
+\right)^T
+\end{equation}
+where the overline refers to expectation with respect to
+\code{X.dist}.  The bottom bit is $E_X\left\{h_2(\bx)\right\}$, which
+is (recall that $h_2(\bx)=(x,xy)^T$):
+
+\begin{equation}\label{hbar.second}
+E_X\left(x,xy\right)^T=
+\left(\overline{x},\overline{x}\cdot\overline{y}+\COV(x,y)\right)^T
+\end{equation}
+
+and we can use the fact that \code{X.dist.int} specifies zero
+correlation between the two independent
+variables' uncertainty distribution to reduce this to %'
+
+\[
+\left(\overline{x},\overline{x}\cdot\overline{y}\right)^T
+\]
+
+
+OK, using the toy example as a guide, we can define a working \code{hbar.fun.int()}:
+
+<<make_hbar.fun.int>>=
+hbar.fun.int <- 
+function (theta, X.dist, phi) 
+{
+    if (is.vector(theta)) {
+        theta <- t(theta)
+    }
+    first.bit <- phi$rho * H1.int(D1.fun(X.dist$mean, theta))
+    first.bit[,5] <- first.bit[,5] + theta[,2]*X.dist$var[2,2]
+    second.bit <- H2.int(X.dist$mean)
+    jj.names <- colnames(second.bit)
+    second.bit <- kronecker(second.bit, rep(1, nrow(first.bit)))
+    colnames(second.bit) <- jj.names
+    return(t(cbind(first.bit, second.bit)))
+}
+@ 
+
+notes
+\begin{itemize}
+\item See how the fifth column of \code{first.bit} has to have a
+component for the variance added, to match the variance term in
+equation \ref{hbar.first}.
+\item There is no such addition to \code{second.bit} because the
+random variables in \code{X.dist.int} have zero correlation.
+\item Everything else just follows from \code{hbar.fun.toy()}.
+\end{itemize}
+
+
+Now we can conduct a calibrated prediction:
+
+<<call_EK.eqn10.theta,echo=FALSE,cache=TRUE>>=
+  if(do_from_scratch){
+    jj <- EK.eqn10.supp(X.dist=X.dist.int, D1=D1.int, D2=D2.int,
+                        H1=H1.int, H2=H2.int, d=d.int, hbar.fun=hbar.fun.int,
+                        lower.theta=c(-3,-3), upper.theta=c(3,3),
+                        extractor=extractor.int,
+                        phi=phi.stage2,eps=0.8)
+  } else {
+    jj <- 1.95633284138600
+  }
+@ 
+\begin{Schunk}
+\begin{Sinput}
+EK.eqn10.supp(X.dist=X.dist.int, D1=D1.int, D2=D2.int,
+                        H1=H1.int, H2=H2.int, d=d.int, hbar.fun=hbar.fun.int,
+                        lower.theta=c(-3,-3), upper.theta=c(3,3),
+                        extractor=extractor.int,
+                        phi=phi.stage2,eps=0.8)
+\end{Sinput}
+\end{Schunk}
+
+
+<<printjj,echo=FALSE>>=
+jj
+@ 
+
+
+
+Notes
+\begin{itemize}
+\item We use the optimized value for \code{phi}, that is \code{phi.stage2} (not the true value).
+\item I have set \code{eps} to 0.8, as \code{adapt()} is very slow
+with the default settings.   
+\end{itemize}
+
+\section{Metropolis-Hastings}
+
+The Metropolis-Hastings method allows one to sample from a PDF that is
+only specified up to a constant.  It is useful for posterior PDFs of
+the type given by equation 8 of the supplent (\code{p.eqn8.supp()} in
+the package: only a likelihood is given.
+
+See the manpage for \code{MH.Rd} for examples of the
+Metropolis-Hastings method in use.
+
+For ease of use, we will define a wrapper:
+
+<<defineMHwrapper>>=
+p <- function(theta){
+p.eqn8.supp(theta=theta, D1=D1.int, D2=D2.int, H1=H1.int, H2=H2.int, d=d.int, phi=phi.true)
+}
+p(c(1,1))
+p(c(10,10))
+@ 
+
+
+So, let's sample from it:
+
+<<sample.from.MH,cache=TRUE>>=
+ss <- MH(n=10,start=c(1,1),sigma=diag(2),pi=p)
+@ 
+
+Figure~\ref{scatterplot} shows a sample of size 10 from the posterior.
+
+
+\begin{figure}[htbp]
+  \begin{center}
+<<scatterplot,fig=TRUE>>=
+plot(jitter(ss),xlab="A",ylab="B",main="Sample from posterior: try with more points")
+@
+\caption{Sample from the posterior\label{scatterplot} distribution of
+  theta, made using the Metropolis-Hastings method}
+  \end{center}
+\end{figure}
+
+
+<<SetTheBib,  echo=FALSE, results=hide>>=
+bib <- system.file( "doc", "uncertainty.bib", package = "emulator" )
+bib <- sub('.bib$','',bib)
+@ 
+
+<<usethebib, echo=FALSE, results=tex>>=
+cat( "\\bibliography{",bib,"}\n",sep='')
+@
+
+
+
+\end{document}

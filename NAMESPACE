@@ -1,0 +1,8 @@
+exportPattern("^[^\\.]")
+import("emulator")
+
+importFrom("mvtnorm","dmvnorm","rmvnorm")
+importFrom("stats","runif","rnorm","optim","integrate")
+importFrom("cubature","adaptIntegrate")
+
+importFrom("stats", "integrate", "optim", "rnorm", "runif")

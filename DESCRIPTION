@@ -12,5 +12,6 @@ Description: Performs Bayesian calibration of computer models as per
  worked example using the toy dataset.  A tutorial is provided in the
  calex.Rnw vignette; and a suite of especially simple one dimensional
  examples appears in inst/doc/one.dim/.
-License: GPL
-
+License: GPL-2
+URL: https://github.com/RobinHankin/calibrator.git
+BugReports: https://github.com/RobinHankin/calibrator/issues

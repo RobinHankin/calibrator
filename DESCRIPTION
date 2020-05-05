@@ -1,9 +1,9 @@
 Package: calibrator
 Type: Package
 Title: Bayesian Calibration of Complex Computer Codes
-Version: 1.2-8
+Version: 1.2-9
 Authors@R: person(given=c("Robin", "K. S."), family="Hankin", role = c("aut","cre"), email="hankin.robin@gmail.com", comment = c(ORCID = "0000-0001-5982-0415"))
-Depends: R (>= 2.0.0), emulator (>= 1.2-11), mvtnorm
+Depends: R (>= 3.5.0), emulator (>= 1.2-11), mvtnorm
 Imports: cubature
 Maintainer: Robin K. S. Hankin <hankin.robin@gmail.com>
 Description: Performs Bayesian calibration of computer models as per

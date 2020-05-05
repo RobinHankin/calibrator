@@ -93,7 +93,8 @@
   below}
 }
 \details{
-  All toy datasets are documented here.  There are also several toy
+  All toy datasets are documented here; they are created by running
+  \code{inst/toys.R}.   There are also several toy
   functions that are needed for a toy problem; these are documented
   separately (they are too diverse to document fully in a single
   manpage).  Nevertheless a terse summary  for each toy function

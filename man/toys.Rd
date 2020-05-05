@@ -20,13 +20,6 @@
 }
 \usage{
   data(toys)
-  D1.toy
-  D2.toy
-  d.toy
-  phi.toy
-  theta.toy
-  V.toy
-  X.dist.toy
 }
 \format{
   The \code{D1.toy} matrix is 8 rows of code run points, with five

@@ -8,15 +8,15 @@ structure(c(
             0.1875, 0.6875, 0.3125, 0.8125, 0.0625, 0.4375, 0.9375, 0.5625,
             0.0625, 0.9375, 0.4375, 0.5625, 0.3125, 0.1875, 0.6875, 0.8125
             ),
-          .Dim = as.integer(c(8, 5)),
-          .Dimnames = list(c("code.1", "code.2", "code.3", "code.4", "code.5", "code.6", "code.7", "code.8"),
+          dim = as.integer(c(8, 5)),
+          dimnames = list(c("code.1", "code.2", "code.3", "code.4", "code.5", "code.6", "code.7", "code.8"),
             c("x", "y", "A", "B", "C")),
           comment = "Each line has two variable inputs and three parameter values"
           )
 
 "D2.toy" <- 
-structure(c(0.5, 0.9, 0.3, 0.1, 0.7, 0.7, 0.3, 0.1, 0.9, 0.5), .Dim = as.integer(c(5, 
-2)), .Dimnames = list(c("obs.1", "obs.2", "obs.3", "obs.4", "obs.5"
+structure(c(0.5, 0.9, 0.3, 0.1, 0.7, 0.7, 0.3, 0.1, 0.9, 0.5), dim = as.integer(c(5, 
+2)), dimnames = list(c("obs.1", "obs.2", "obs.3", "obs.4", "obs.5"
 ), c("x", "y")), comment = "x and y values at which observations are made")
  
 "x.toy" <- 
@@ -26,7 +26,7 @@ structure(c(0.5, 0.6), .Names = c("x", "y"))
 structure(c(0.72, 0.82), .Names = c("x", "y"))
 
 "x.vec" <-
-structure(c(0.5, 3, 0.5, 0.6, 3, 0.6), .Dim = c(3, 2), .Dimnames = list(c("point.1", "point.2", "point.3"), c("x", "y")))
+structure(c(0.5, 3, 0.5, 0.6, 3, 0.6), dim = c(3, 2), dimnames = list(c("point.1", "point.2", "point.3"), c("x", "y")))
 
 
 
@@ -84,15 +84,15 @@ structure(c(14.9142207582054, 12.0025896265835, 12.2767044775853,
 12.0159738957503, 15.9760869003541, 10.9555602796654, 11.6959105710155, 
 12.7117960625486, 8.03151093903154, 10.5269607521254, 17.1940931737214, 
 10.3137300693957, 13.1533815046953, 13.6889520237998, 12.7966858710281, 
-12.0506477479864, 14.6135757335225), .Dim = as.integer(c(5, 5
-)), .Dimnames = list(c("obs.1", "obs.2", "obs.3", "obs.4", "obs.5"
+12.0506477479864, 14.6135757335225), dim = as.integer(c(5, 5
+)), dimnames = list(c("obs.1", "obs.2", "obs.3", "obs.4", "obs.5"
 ), c("obs.1", "obs.2", "obs.3", "obs.4", "obs.5")))
 
 "t.vec.toy" <- 
 structure(c(0.0625, 0.6875, 0.9375, 0.3125, 0.5625, 0.4375, 0.8125, 
 0.1875, 0.1875, 0.6875, 0.3125, 0.8125, 0.0625, 0.4375, 0.9375, 
 0.5625, 0.0625, 0.9375, 0.4375, 0.5625, 0.3125, 0.1875, 0.6875, 
-0.8125), .Dim = as.integer(c(8, 3)), .Dimnames = list(c("code.1", 
+0.8125), dim = as.integer(c(8, 3)), dimnames = list(c("code.1", 
 "code.2", "code.3", "code.4", "code.5", "code.6", "code.7", "code.8"
 ), c("A", "B", "C")))
 

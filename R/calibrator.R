@@ -1413,7 +1413,6 @@ function(X.dist, D1, D2, H1, H2, d, hbar.fun,
   multi.dimensional <- length(phi$theta.apriori$mean)>1
   if(multi.dimensional){ # multi dimensional case
 
-    
     numerator   <- adaptIntegrate(f=integrand.numerator  , lowerLimit = lower.theta, upperLimit = upper.theta, ...)
     denominator <- adaptIntegrate(f=integrand.denominator, lowerLimit = lower.theta, upperLimit = upper.theta, ...)
 
@@ -1427,7 +1426,6 @@ function(X.dist, D1, D2, H1, H2, d, hbar.fun,
       integrate(f=integrand.numerator.vectorized,
                 lower=lower.theta, upper=upper.theta, ...)
     
-    
     integrand.denominator.vectorized <- function(theta.vec){
       sapply(theta.vec,integrand.denominator)
     }
@@ -1437,7 +1435,6 @@ function(X.dist, D1, D2, H1, H2, d, hbar.fun,
     
     out <- numerator$value/denominator$value
   }
-  
 
   if(give.info){
     return(list(answer=out, numerator=numerator, denominator=denominator))

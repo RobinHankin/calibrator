@@ -174,10 +174,10 @@ list(mean=0.1+(1:3),sigma=2.1+diag(3)))
 
 phi.fun.toy(rho=1, lambda=1,
     psi1 = structure(c(1.1, 1.2, 1.3, 1.4, 1.5, 0.7),
-            .Names = c("x", "y", "A","B", "C","s1sq")),
+            names = c("x", "y", "A","B", "C","s1sq")),
     psi1.apriori  = list(
              mean=rep(0,6), sigma=0.4+diag(6)),
-             psi2=structure(c(2.1, 2.2), .Names = c("x","y")),
+             psi2=structure(c(2.1, 2.2), names = c("x","y")),
              psi2.apriori  = list(mean=rep(0,5),sigma=0.2+diag(5)),
              theta.apriori = list(mean=0.1+(1:3),sigma=2.1+diag(3))
 )

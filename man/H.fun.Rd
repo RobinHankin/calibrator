@@ -27,7 +27,6 @@ H.fun(theta, D1, D2, H1, H2, phi)
     of Sheffield.  Available at
     \url{http://www.tonyohagan.co.uk/academic/ps/calsup.ps}
 
-
     \item
     R. K. S. Hankin 2005. \emph{Introducing BACCO, an R bundle for
       Bayesian analysis of computer code output}, Journal of Statistical
